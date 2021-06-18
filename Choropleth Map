@@ -1,0 +1,47 @@
+# Created using Plotly code available here: https://plotly.com/python/choropleth-maps/
+
+import plotly.express as px
+
+import os
+import pandas as pd
+path = os.getcwd()
+print(path)
+print(type(path))
+
+import plotly.graph_objects as go
+import pandas as pd
+
+df = pd.read_csv('Locations.csv')
+
+fig = go.Figure(data=go.Choropleth(
+    locations = df['Country Codes'],
+    z = df['Count'],
+    text = df['Country Name'],
+    colorscale = 'sunsetdark',
+    autocolorscale=False,
+    reversescale=False,
+    marker_line_color='White',
+    marker_line_width=0,
+    colorbar_tickprefix = '',
+    colorbar_title = 'No. Reported<Br>IWT Crime<Br>Convergences',
+))
+
+fig.update_layout(
+        width= 900,
+        height= 800,
+    geo=dict(
+        showframe=False,
+        showcoastlines=False,
+        projection_type='equirectangular'
+    ),
+    annotations = [dict(
+        x=0.55,
+        y=0.1,
+        xref='paper',
+        yref='paper',
+        text='',
+        showarrow = False
+    )]
+)
+
+fig.show()
