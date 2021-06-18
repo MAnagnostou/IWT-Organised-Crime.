@@ -1,0 +1,261 @@
+# This code has been modified from Github User, ken333135's file titled "genSankey". 
+# Please follow this link to see original code: https://gist.github.com/09f8793fff5a6df28558b17e516f91ab.git
+
+import fileinput
+import pandas as pd
+import os
+path = os.getcwd()
+print(path)
+
+import plotly
+from chart_studio.plotly import iplot
+import plotly.graph_objects as go
+import urllib, json
+from matplotlib.colors import LinearSegmentedColormap
+import numpy as np
+import matplotlib.pyplot as plt
+from unicodedata import normalize
+
+df =  pd.read_excel('Dataset_Final.xlsx', index_col=None, header=0) 
+
+# Dictionary Mapping
+
+di = {'Drug Trafficking': 'Drug Trafficking',
+ 'Non-State Armed Groups (Incl. Terrorist, Militias, and Insurgents)': 'Armed Groups',
+ 'Money Laundering, Tax Evasion, and other Illicit Financial Flows': 'Financial Crime',
+ 'Arms, Weapons, Ammunition and Parts Trafficking': 'Arms Trafficking',
+ 'Trafficking in Persons and Migrant Smuggling': 'Human Trafficking',
+ 'Corruption (Petty and Grand)': 'Corruption',
+ 'Illegal Mining and Trafficking in Minerals, Metals, and Gemstones': 'Mined Goods Trafficking',
+ 'Organised Crime Group Involvement': 'Organised Crime Group',
+ 'Criminal Violence (Incl. Homicide, Torture, Rape, Assault)': 'Criminal Violence',
+ 'Counterfeit Goods Trafficking (Inc. Electronics, Accessories, Clothing)': 'Counterfeit Goods',
+ 'Fraud': 'Fraud',
+    'Theft and Organised Robbery': 'Robbery',
+ 'Illegal Logging and Timber Trafficking': 'Timber Trafficking',
+ 'Contraband Trafficking (General)': 'Other Contraband',
+ 'Racketeering (Incl. Banditry, Extortion, Kidnapping for Ransom, Gambling, and Loansharking)': 'Racketeering',
+ 'Food and Agricultural Goods Trafficking': 'Agri. Goods Trafficking',
+ 'Counterfeit, forged, and fraudulent documentation ': 'Fraud',
+ 'Bulk Cash Smuggling and Counterfeit Currencies': 'Cash Smuggling',
+ 'Other Serious and Organised Crime': 'Other Serious Crimes'}
+
+df2=df.replace({"Other Crime": di})
+
+# Creating species-specific DataFrames
+
+df3=df2.loc[ (df['Taxa/ Product']=='Ivory')] #(a)
+df4=df2.loc[ (df['Taxa/ Product']=='Rhino Horn')] #(b)
+df5=df2.loc[ (df['Taxa/ Product']=='Abalone')] #(e)
+df6=df2.loc[ (df['Taxa/ Product']=='Birds')] #(f)
+df7=df2.loc[ (df['Taxa/ Product']=='Reptiles and Amphibians')] #(d)
+df8=df2.loc[ (df['Taxa/ Product']=='Fish')] #(c)
+df9=df2.loc[ (df['Taxa/ Product']=='Big Cats')] #(g)
+df10=df2.loc[ (df['Taxa/ Product']=='Pangolins')] #(h)
+
+#Defining colors
+
+globalcolors = ["rgba(177, 28, 59, 0.4)",  
+                "rgba(42, 114, 149, 0.4)", 
+                "rgba(22, 160, 133, 0.4)", 
+                "rgba(192, 73, 31, 0.4)",  
+                "rgba(203, 33, 151, 0.4)",
+                "rgba(83, 107, 213, 0.4)",
+                "rgba(105, 69, 229, 0.4)", 
+                "rgba(214, 140, 29, 0.4)", 
+                "rgba(155, 87, 191, 0.4)", 
+                "rgba(177, 84, 84, 0.4)",  
+                "rgba(149, 221, 125, 0.4)"]
+
+ColorIndex = 0
+labelColorMap = {}
+FigTitle = 'a'
+
+# Creating Sankey:
+
+def genSankey(df,cat_cols=[],value_cols='',title='Sankey Diagram'):
+    
+    # maximum of 6 value cols -> 6 colors
+    # colorPalette = ['MediumSlateBlue','DarkSlateBlue','SteelBlue']
+    colorPalette = ['LightGrey','LightGrey', 'LightGrey']
+    labelList = []
+    colorNumList = []
+    for catCol in cat_cols:
+        labelListTemp =  list(set(df[catCol].values))
+        colorNumList.append(len(labelListTemp))
+        labelList = labelList + labelListTemp
+
+    middleNodes = list(set(df["Convergence Type"].values))
+    
+    EndNodes = list(set(df["Other Crime"].values))
+    
+    # remove duplicates from labelList
+    labelList = list(dict.fromkeys(labelList))
+        
+    # define colors based on number of levels
+    colorList = []
+    for idx, colorNum in enumerate(colorNumList):
+        colorList = colorList + [colorPalette[idx]]*colorNum
+        
+    # transform df into a source-target pair
+    for i in range(len(cat_cols)-1):
+        if i==0:
+            sourceTargetDf = df[[cat_cols[i],cat_cols[i+1],value_cols]]
+            sourceTargetDf.columns = ['source','target','count']
+        else:
+            tempDf = df[[cat_cols[i],cat_cols[i+1],value_cols]]
+            tempDf.columns = ['source','target','count']
+            sourceTargetDf = pd.concat([sourceTargetDf,tempDf])
+        sourceTargetDf = sourceTargetDf.groupby(['source','target']).agg({'count':'sum'}).reset_index()
+        
+    # add index for source-target pair ***
+    sourceTargetDf['sourceID'] = sourceTargetDf['source'].apply(lambda x: labelList.index(x))
+    sourceTargetDf['targetID'] = sourceTargetDf['target'].apply(lambda x: labelList.index(x))    
+    
+    # create lists from series
+    sourceList= sourceTargetDf['sourceID'].tolist()
+    targetList= sourceTargetDf['targetID'].tolist()
+    
+    ArcColor = []
+    
+    global ColorIndex
+    global labelColorMap
+    global globalcolors
+    global FigTitle
+    
+    for i in range(len(sourceList)):
+        
+        if sourceList[i] != 0:
+            if labelList[sourceList[i]] in labelColorMap.keys():
+                ArcColor.append(labelColorMap[labelList[sourceList[i]]])
+           
+            else: 
+                ArcColor.append(globalcolors[ColorIndex])
+                labelColorMap[labelList[sourceList[i]]] = globalcolors[ColorIndex]
+                ColorIndex = ColorIndex + 1
+                
+        else:
+             ArcColor.append('rgba(113, 122, 186, 0.8)')
+                
+    MiddleNodeOrder = ('Barter Trade', 'Common Fixer', 'Diversification', 'Forced & Bonded Labourers', 
+                       'Geographic Convergence', 'Narco-Zoo',
+            'Parallel Trafficking', 'Serious Enabling Crimes', 'Shared Smuggling Routes', 
+                       'Taxation', 'Threat Finance')
+
+    EndNodeOrder = ('Agri. Goods Trafficking', 'Armed Groups', 'Arms Trafficking', 'Cash Smuggling','Corruption', 
+            'Counterfeit Goods', 'Criminal Violence', 'Drug Trafficking', 'Financial Crime', 'Fraud', 'Human Trafficking',
+                    'Mined Goods Trafficking','Organised Crime Group', 'Other Serious Crimes', 'Other Contraband', 
+                    'Racketeering', 'Robbery', 'Timber Trafficking')
+  
+    X = []
+    Y = []
+    
+    for i in range(len(labelList)):
+        X.append(0)
+        Y.append(0)
+    
+    middleY = 0.01
+    endY = 0.01
+    
+    middleincrement = 1/len(middleNodes)
+    endincrement = 1/len(EndNodes)
+    
+    for node in MiddleNodeOrder:
+        if node in labelList:
+            position = labelList.index(node)
+            X[position] = 0.4
+            Y[position] = middleY
+            middleY = middleY + middleincrement
+            
+    for node in EndNodeOrder:
+        if node in labelList:
+            position = labelList.index(node)
+            X[position] = 0.9
+            Y[position] = endY
+            endY = endY + endincrement    
+    print(labelList)
+    print("Xcoord", X)
+    print("Ycoord", Y)
+    
+    data = dict(
+        arrangement = "snap",
+        type='sankey',
+        node = dict(
+          pad = 13,
+          thickness = 60,
+          line = dict(
+            color = "LightGrey",
+            width = 0.6,
+                      
+     # Nodes color list        
+          ),
+          label = labelList,
+            x = X,
+            y = Y,
+            
+          color = colorList,
+        ),
+        
+        #Arch color list
+        link = dict(
+          source = sourceTargetDf['sourceID'],
+          target = sourceTargetDf['targetID'],
+          value = sourceTargetDf['count'],
+            
+            #Labels for each arch
+            label = [labelList [sourceList[i]]+'--->'+labelList[targetList[i]] for i in range(len(sourceList))],
+            
+            color =  ArcColor
+                )
+      )
+    
+    layout =  dict(
+        title         = FigTitle,
+        plot_bgcolor  = 'black',
+        paper_bgcolor = "white",
+        font          =  dict(color= "black", size = 18, family = "Arial"))
+    
+    FigTitle = chr(ord(FigTitle) + 1)
+    
+    fig = dict(data=[data], layout=layout)
+    
+    return fig
+
+fig = genSankey(df3,cat_cols=['Taxa/ Product','Convergence Type','Other Crime'],value_cols='Count')
+plotly.io.write_html(fig, file='Ivory_w.html')
+
+fig = genSankey(df4,cat_cols=['Taxa/ Product','Convergence Type','Other Crime'],value_cols='Count')
+plotly.io.write_html(fig, file='RhinoHorn_w.html')
+
+fig = genSankey(df8,cat_cols=['Taxa/ Product','Convergence Type','Other Crime'],value_cols='Count')
+plotly.io.write_html(fig, file='Fish_w.html')
+
+fig = genSankey(df7,cat_cols=['Taxa/ Product','Convergence Type','Other Crime'],value_cols='Count')
+plotly.io.write_html(fig, file='Reptiles and Amphibians_w.html')
+
+fig = genSankey(df5,cat_cols=['Taxa/ Product','Convergence Type','Other Crime'],value_cols='Count')
+plotly.io.write_html(fig, file='Abalone_w.html')
+
+fig = genSankey(df6,cat_cols=['Taxa/ Product','Convergence Type','Other Crime'],value_cols='Count')
+plotly.io.write_html(fig, file='Birds_w.html')
+
+fig = genSankey(df9,cat_cols=['Taxa/ Product','Convergence Type','Other Crime'],value_cols='Count')
+plotly.io.write_html(fig, file='BigCats_w.html')
+
+fig = genSankey(df10,cat_cols=['Taxa/ Product','Convergence Type','Other Crime'],value_cols='Count')
+plotly.io.write_html(fig, file='Pangolins_w.html')
+
+# HTML override to remove text shadow
+
+filenameList = ['Birds_w.html', 'Ivory_w.html', 'Abalone_w.html', 'RhinoHorn_w.html', 'Reptiles and Amphibians_w.html', 'Fish_w.html', 'BigCats_w.html', 'Pangolins_w.html']
+for filename in filenameList:
+    file = open(filename, 'r')
+    replacement = ""
+    for line in file:
+        line = line.strip()
+        newline = line.replace('text-shadow','text-shadow:none;')
+        replacement = replacement + newline + "\n"
+    file.close()
+    writefile = open(filename, 'w')
+    writefile.write(replacement)
+    writefile.close()
