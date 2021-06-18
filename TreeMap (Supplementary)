@@ -1,0 +1,20 @@
+# Original code provided by Plotly: https://plotly.com/python/treemaps/
+
+import plotly.express as px
+import numpy as np
+import fileinput
+import pandas as pd
+import os
+path = os.getcwd()
+
+df =  pd.read_excel('TreeMapData.xlsx', index_col=None, header=0) 
+
+
+df["Crime Convergence"] = "Crime Convergence" # in order to have a single root node
+
+fig = px.treemap(df, path=['CrimeTypes', 'DrugTypes'], values='Count',
+                  color='Count', #hover_data=['iso_alpha'],
+                  color_continuous_scale= 'RdBu_r',
+                  color_continuous_midpoint=np.average(df['Count'], weights=df['Count']))
+
+fig.show()
