@@ -1,6 +1,12 @@
 # This code has been modified from Github User, ken333135's file titled "genSankey". 
 # Please follow this link to see original code: https://gist.github.com/09f8793fff5a6df28558b17e516f91ab.git
 
+# Modifications from original Sankey code include:
+  # Added labels to links with source node and target node names; 
+  # Removed text shadow; 
+  # Mapped certain nodes to certain arc colors; 
+  # Defined vertical position order for nodes;
+
 import fileinput
 import pandas as pd
 import os
